@@ -4,6 +4,7 @@ import (
 	"crypto/hmac"
 	"crypto/sha256"
 	"encoding/base64"
+	"encoding/xml"
 	"fmt"
 	"io/ioutil"
 	"log"
@@ -20,9 +21,123 @@ type Client struct {
 	Host         string
 }
 
+type ItemLookupResponse struct {
+	XMLName xml.Name `xml:"ItemLookupResponse"`
+	Items   Items
+}
+
+type Items struct {
+	Request Request
+	Item    Item
+}
+
+type Request struct {
+	IsValid           bool
+	ItemLookupRequest ItemLookupRequest
+}
+
+type ItemLookupRequest struct {
+	IdType         string
+	ItemId         string
+	ResponseGroups []string `xml:"ResponseGroup"`
+	VariationPage  string
+}
+
+type Item struct {
+	ASIN           string
+	DetailPageURL  string
+	ItemLinks      []ItemLink `xml:"ItemLinks>ItemLink"`
+	ItemAttributes ItemAttributes
+	OfferSummary   OfferSummary
+	Offers         Offers
+}
+
+type ItemLink struct {
+	Description string
+	URL         string
+}
+
+type ItemAttributes struct {
+	Binding           string
+	Brand             string
+	Color             string
+	EAN               string
+	EANList           []string `xml:"EANList>EANListElement"`
+	Feature           []string
+	ItemDimensions    Dimensions
+	Label             string
+	ListPrice         Price
+	Manufacturer      string
+	Model             string
+	MPN               string
+	PackageDimensions Dimensions
+	PartNumber        string
+	ProductGroup      string
+	ProductTypeName   string
+	Publisher         string
+	Studio            string
+	Title             string
+	UPC               string
+	UPCList           []string `xml:"UPCList>UPCListElement"`
+}
+
+type Dimensions struct {
+	Height int
+	Length int
+	Weight int
+	Width  int
+}
+
+type OfferSummary struct {
+	LowestNewPrice   Price
+	LowestUsedPrice  Price
+	TotalNew         int
+	TotalUsed        int
+	TotalCollectible int
+	TotalRefurbished int
+}
+
+type Price struct {
+	Amount         int
+	CurrencyCode   string
+	FormattedPrice string
+}
+
+type Offers struct {
+	TotalOffers     int
+	TotalOfferPages int
+	MoreOffersUrl   string
+	Offer           Offer
+}
+
+type Offer struct {
+	OfferAttributes OfferAttributes
+	OfferListing    OfferListing
+}
+
+type OfferAttributes struct {
+	Condition string
+}
+
+type OfferListing struct {
+	AvailabilityAttributes          AvailabilityAttributes
+	OfferListingId                  string
+	Price                           Price
+	AmountSaved                     Price
+	PercentageSaved                 int
+	IsEligibleForSuperSaverShipping int
+	IsEligibleForPrime              int
+}
+
+type AvailabilityAttributes struct {
+	AvailabilityType string
+	MinimumHours     int
+	MaximumHours     int
+}
+
 const Path = "/onca/xml"
 
-func (c *Client) ItemLookup(itemId string, idType string, responsedGroup []string) (string, error) {
+func (c *Client) ItemLookup(itemId string, idType string, responsedGroup []string) (*ItemLookupResponse, error) {
 	v := url.Values{}
 	v.Set("Service", "AWSECommerceService")
 	v.Set("AWSAccessKeyId", c.AccessKeyId)
@@ -46,17 +161,20 @@ func (c *Client) ItemLookup(itemId string, idType string, responsedGroup []strin
 		RawQuery: v.Encode(),
 	}
 
+	var ires ItemLookupResponse
 	resp, err := http.Get(reqUrl.String())
 	log.Println(reqUrl.String())
 	if err != nil {
-		return "", err
+		return &ires, err
 	}
 
 	defer resp.Body.Close()
 	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		return "", err
+		return &ires, err
 	}
 
-	return string(body), nil
+	xml.Unmarshal(body, &ires)
+
+	return &ires, nil
 }
