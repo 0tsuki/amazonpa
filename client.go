@@ -50,6 +50,23 @@ type Item struct {
 	ItemAttributes ItemAttributes
 	OfferSummary   OfferSummary
 	Offers         Offers
+	SalesRank      int
+	BrowseNodes    BrowseNodes
+}
+
+type BrowseNodes struct {
+	BrowseNode []BrowseNode
+}
+
+type BrowseNode struct {
+	BrowseNodeId   int
+	Name           string
+	IsCategoryRoot bool
+	Ancestors      Ancestors
+}
+
+type Ancestors struct {
+	BrowseNode *BrowseNode
 }
 
 type ItemLink struct {
